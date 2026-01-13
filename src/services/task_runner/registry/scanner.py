@@ -39,9 +39,22 @@ class ModuleScanner:
             with open(json_path, 'r') as f:
                 data = json.load(f)
                 # Basic schema check
-                required_keys = ["name", "version", "entry_point"]
-                if all(k in data for k in required_keys):
-                    return data
+                required_keys = ["name", "version", "entry_point", "inputs", "outputs"]
+                if not all(k in data for k in required_keys):
+                    return None
+                
+                # Extended Validation: Inputs
+                for inp in data.get("inputs", []):
+                    if "key" not in inp or "contract_type" not in inp:
+                        # Invalid input definition
+                        return None
+                    if inp["contract_type"] not in ["ASSET", "VALUE"]:
+                        return None
+                        
+                # Extended Validation: Resources (Optional but recommended)
+                # If present, check structure? For now, just ensure it doesn't crash.
+                    
+                return data
         except Exception:
             pass
         

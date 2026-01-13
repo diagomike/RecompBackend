@@ -5,20 +5,19 @@ from typing import Dict, Any, Optional
 
 class ModuleRunner:
     """
-    Executes a module in its isolated environment.
+    Executes a module in its isolated environment via Manifest.
     """
 
     def run_module(
         self,
         python_exec: str,
         script_path: str,
-        mode: str,
-        args: Dict[str, Any] = None,
+        manifest_path: str,
         timeout: int = 300
     ) -> Dict[str, Any]:
         """
-        Runs the module via CLI.
-        Command constructed: <python_exec> <script_path> --mode <mode> --<key> <value> ...
+        Runs the module via CLI using the standardized --manifest argument.
+        Command: <python_exec> <script_path> --manifest <manifest_path>
         
         Returns:
             Dict containing:
@@ -27,18 +26,8 @@ class ModuleRunner:
             - result: parsed JSON result (if any)
             - error: error message (if any)
         """
-        if args is None:
-            args = {}
-
-        cmd = [python_exec, script_path, "--mode", mode]
+        cmd = [python_exec, script_path, "--manifest", manifest_path]
         
-        # Convert args to CLI flags
-        for key, value in args.items():
-            cmd.append(f"--{key}")
-            # If complex object, maybe stringify or pass file path. 
-            # For strict CLI, we assume strings or file paths.
-            cmd.append(str(value))
-
         logs = []
         result_data = None
         success = False
@@ -49,7 +38,7 @@ class ModuleRunner:
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                stderr=subprocess.STDOUT, # Merge stderr into stdout for simple logging
                 text=True
             )
 
@@ -57,19 +46,11 @@ class ModuleRunner:
             for line in process.stdout:
                 line_stripped = line.strip()
                 logs.append(line_stripped)
-                
-                # Check for magic prefix if we want to parse specific result, 
-                # or just parse the last line as JSON? 
-                # The spec said: "The final line of output (or a specific JSON block) is parsed as the result."
-                # Let's try to parse every line as JSON to see if it's the result, 
-                # otherwise treat as log. A robust way is to have the module print 
-                # a specific prefix like "RESULT: {...}" but we can try parsing the last valid JSON.
                 pass
 
             process.wait(timeout=timeout)
 
-            # Attempt to extract result from logs
-            # Strategy: Reverse iterate logs to find valid JSON
+            # Attempt to extract result from logs (Last valid JSON wins)
             for line in reversed(logs):
                 try:
                     possible_json = json.loads(line)

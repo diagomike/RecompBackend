@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from typing import List, Dict, Any
 
 from src.shared.database.mongo import ModuleRegistryRepository
@@ -109,31 +110,53 @@ class RegistryOrchestrator:
         python_exec = self.env_manager.get_python_exec(full_path)
         script_path = os.path.join(full_path, "main.py")
         
-        # Assume test payload is in test_data.json as per spec 
-        # But wait, spec said "Input test_data.json". 
-        # I'll modify the runner call to pass --input_file test_data.json
+        # Test Data as "Payload"
         test_file = os.path.join(full_path, "test_data.json")
         if not os.path.exists(test_file):
-            # Create a dummy one if not exists? Or fail?
-            # Spec says "Mandatory test payload".
             self.repo.update_module(module_name, {"status": "ERROR"})
             self.repo.append_log(module_name, "[Test] Missing test_data.json")
+            return
+            
+        # Create a temporary Manifest for the test
+        manifest_path = os.path.join(full_path, "test_manifest.json")
+        try:
+            with open(test_file, 'r') as f:
+                test_payload = json.load(f)
+            
+            # Wrap validation payload into a Manifest Structure
+            # We assume for testing, the manifest simply contains the inputs directly, or 
+            # maybe it has a "inputs" key. Let's assume the manifest IS the envelope.
+            # { "mode": "test", "inputs": { ...test_data... } }
+            
+            test_manifest = {
+                "mode": "test",
+                "task_id": "TEST_RUN",
+                "inputs": test_payload
+            }
+            
+            with open(manifest_path, 'w') as f:
+                json.dump(test_manifest, f)
+                
+        except Exception as e:
+            self.repo.update_module(module_name, {"status": "ERROR"})
+            self.repo.append_log(module_name, f"[Test] Failed to create manifest: {e}")
             return
 
         result = self.runner.run_module(
             python_exec=python_exec,
             script_path=script_path,
-            mode="test",
-            args={"input_file": test_file}
+            manifest_path=manifest_path
         )
+
+        # Cleanup Manifest
+        if os.path.exists(manifest_path):
+            os.remove(manifest_path)
 
         # Log output
         for line in result["logs"]:
             self.repo.append_log(module_name, f"[Test Output] {line}")
 
         if result["success"]:
-            # Spec says "Must print {'status': 'success', ...}"
-            # Let's check result json
             res_json = result["result"]
             if res_json and res_json.get("status") == "success":
                 self.repo.update_module(module_name, {

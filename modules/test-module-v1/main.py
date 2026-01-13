@@ -2,46 +2,36 @@ import sys
 import argparse
 import json
 
-def setup():
-    print("Performing setup...")
-    # Simulate downloading headers or something
-    print("Setup complete.")
-
-def run_test(input_file):
-    print("Running test case...")
+def run_from_manifest(manifest_path):
     try:
-        with open(input_file, 'r') as f:
-            data = json.load(f)
+        with open(manifest_path, 'r') as f:
+            manifest = json.load(f)
         
-        # Simple echo check
-        if "test_key" in data:
-            print(json.dumps({"status": "success", "echo": data["test_key"]}))
-        else:
-            print(json.dumps({"status": "success", "message": "No key but works"}))
+        mode = manifest.get("mode", "run")
+        inputs = manifest.get("inputs", {})
+        
+        if mode == "test":
+            # Test logic
+            if "msg" in inputs:
+                print(json.dumps({"status": "success", "echo": inputs["msg"]}))
+            elif "test_key" in inputs:
+                 print(json.dumps({"status": "success", "echo": inputs["test_key"]}))
+            else:
+                print(json.dumps({"status": "success", "message": "No input key found, but alive"}))
+                
+        elif mode == "run":
+            # Task logic
+            print(f"Processing task {manifest.get('task_id', 'unknown')}")
+            result = {"result": f"Echo: {inputs.get('msg', 'no msg')}"}
+            print(json.dumps(result))
             
     except Exception as e:
-        print(f"Error reading input: {e}")
+        print(f"Error reading manifest: {e}")
         sys.exit(1)
-
-def run_task(task_id, input_file):
-    print(f"Running task {task_id}...")
-    # ... logic ...
-    print(json.dumps({"result": "task_complete"}))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", required=True, choices=["setup", "test", "run"])
-    parser.add_argument("--input_file", help="Input JSON file path")
-    parser.add_argument("--task_id", help="Task ID for run mode")
+    parser.add_argument("--manifest", required=True, help="Path to input manifest JSON")
     
     args = parser.parse_args()
-    
-    if args.mode == "setup":
-        setup()
-    elif args.mode == "test":
-        if not args.input_file:
-            print("Error: --input_file required for test")
-            sys.exit(1)
-        run_test(args.input_file)
-    elif args.mode == "run":
-        run_task(args.task_id, args.input_file)
+    run_from_manifest(args.manifest)

@@ -35,6 +35,13 @@ def main():
         
     if module.get('status') == "AVAILABLE":
         print("SUCCESS: Module is available.")
+        # Verify inputs schema was captured
+        inputs = module.get("config", {}).get("inputs", [])
+        if inputs and inputs[0].get("contract_type") == "VALUE":
+             print("SUCCESS: Module contract (inputs) correctly registered.")
+        else:
+             print("FAILED: Module contract not captured.")
+             sys.exit(1)
     else:
         print("FAILED: Module is not available.")
         sys.exit(1)
