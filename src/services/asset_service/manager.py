@@ -68,29 +68,48 @@ class AssetManager:
         }
         return self.repo.create_asset(asset_data)
 
-    def fulfill_asset(self, asset_id: str, actual_file_path: str) -> bool:
+    def fulfill_asset(self, asset_id: str, value: Any = None, is_path: bool = True) -> bool:
         """
-        Moves a produced file into the generated/task_id folder and marks asset as AVAILABLE.
+        Fulfills a PENDING asset.
+        - If is_path=True, 'value' is assumed to be a file path to move.
+        - If is_path=False, 'value' is stored raw in value_content.
         """
         asset = self.repo.get_asset(asset_id)
         if not asset:
             return False
         
-        task_id = asset.get("created_by_task", "unknown")
-        dest_dir = self.generated_dir / task_id
-        dest_dir.mkdir(parents=True, exist_ok=True)
+        updates = {"status": "AVAILABLE"}
 
-        source_path = Path(actual_file_path)
-        dest_path = dest_dir / source_path.name
+        if is_path and value:
+            task_id = asset.get("created_by_task", "unknown")
+            dest_dir = self.generated_dir / task_id
+            dest_dir.mkdir(parents=True, exist_ok=True)
 
-        # Atomically move file
-        shutil.move(str(source_path), str(dest_path))
+            source_path = Path(value)
+            if not source_path.exists():
+                raise FileNotFoundError(f"Output file {value} not found.")
+                
+            dest_path = dest_dir / source_path.name
 
-        self.repo.update_asset(asset_id, {
-            "status": "AVAILABLE",
-            "storage_path": str(dest_path)
-        })
+            # Atomically move file
+            shutil.move(str(source_path), str(dest_path))
+            updates["storage_path"] = str(dest_path)
+            updates["type"] = "FILE"
+        else:
+            updates["value_content"] = value
+            updates["type"] = "VALUE"
+
+        self.repo.update_asset(asset_id, updates)
         return True
+
+    def fail_asset(self, asset_id: str, error_msg: str):
+        """
+        Marks an asset as FAILED.
+        """
+        self.repo.update_asset(asset_id, {
+            "status": "FAILED",
+            "error": error_msg
+        })
 
     def create_value_asset(self, label: str, value: Any, media_type: str = "application/json") -> str:
         """

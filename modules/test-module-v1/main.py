@@ -22,7 +22,10 @@ def run_from_manifest(manifest_path):
         elif mode == "run":
             # Task logic
             print(f"Processing task {manifest.get('task_id', 'unknown')}")
-            result = {"result": f"Echo: {inputs.get('msg', 'no msg')}"}
+            result = {
+                "status": "success",
+                "response": f"Echo: {inputs.get('msg', 'no msg')}"
+            }
             print(json.dumps(result))
             
     except Exception as e:
