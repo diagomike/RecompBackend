@@ -1,0 +1,14 @@
+{
+  "name": "test-module-v1",
+  "version": "1.0.0",
+  "description": "A dummy module to test the registry",
+  "entry_point": "main.py",
+  "requirements_file": "requirements.txt",
+  "inputs": [
+    { "key": "msg", "type": "string" }
+  ],
+  "outputs": [
+    { "key": "response", "type": "string" }
+  ],
+  "timeout_seconds": 30
+}
